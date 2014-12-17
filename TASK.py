@@ -13,7 +13,7 @@ import collections
 
 TASK = collections.namedtuple('TASK', ['subdomain_id', 'task_id',
                               'required_tasks', 'waiting_tasks', 'delta_t',
-                              'pos','dir'])
+                              'pos', 'dir'])
 TASK.__doc__ = """Represent a task in Ouranos.
 
 Each task is associated to a processor (subdomain_id), has an id (task_id), has

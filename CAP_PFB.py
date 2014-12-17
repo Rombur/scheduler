@@ -28,6 +28,7 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
     n_dir = {2 : 1, 4 : 3, 8 : 10, 16 : 36}
     task_id_offset = 0
     tasks_to_refine = []
+    idir = 0
     for dir in range(n_dir[sn]) :
 # First direction (x: +, y: +)
         for pos in itertools.product(range(n_x),range(n_y)) :
@@ -46,10 +47,11 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
             if j<(n_y-1) :
                 waiting_tasks.append(i+(j+1)*n_x+task_id_offset)
             task = TASK.TASK(subdomain_id,task_id,required_tasks,waiting_tasks,
-                    delta_t,pos,dir)
+                    delta_t,pos,idir)
             tasks.append(task)
             if [i,j] in cells_to_refine :
                 tasks_to_refine.append([task,0])
+        idir += 1
         task_id_offset += n_x*n_y
 
 # Second direction (x: +, y: -)
@@ -69,10 +71,11 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
             if j>=1 :
                 waiting_tasks.append(i+(j-1)*n_x+task_id_offset)
             task = TASK.TASK(subdomain_id,task_id,required_tasks,waiting_tasks,
-                    delta_t,pos,dir)
+                    delta_t,pos,idir)
             tasks.append(task)
             if [i,j] in cells_to_refine :
                 tasks_to_refine.append([task,1])
+        idir += 1
         task_id_offset += n_x*n_y
 
 # Third direction (x: -, y: +)
@@ -92,10 +95,11 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
             if j<(n_y-1) :
                 waiting_tasks.append(i+(j+1)*n_x+task_id_offset)
             task = TASK.TASK(subdomain_id,task_id,required_tasks,waiting_tasks,
-                    delta_t,pos,dir)
+                    delta_t,pos,idir)
             tasks.append(task)
             if [i,j] in cells_to_refine :
                 tasks_to_refine.append([task,2])
+        idir += 1
         task_id_offset += n_x*n_y
 
 
@@ -116,10 +120,11 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
             if j>=1 :
                 waiting_tasks.append(i+(j-1)*n_x+task_id_offset)
             task = TASK.TASK(subdomain_id,task_id,required_tasks,waiting_tasks, 
-                    delta_t,pos,dir)
+                    delta_t,pos,idir)
             tasks.append(task)
             if [i,j] in cells_to_refine :
                 tasks_to_refine.append([task,3])
+        idir += 1
         task_id_offset += n_x*n_y
 
 # Refine the cells necessary.
@@ -441,18 +446,84 @@ class CAP_PFB(object) :
     for i in range(len(self.schedule)-1,-1,-1):
         task = self.schedule[i]
         for waiting_task_id in task[0].waiting_tasks :
-            wait_sch_task = self.schedule_id_map[waiting_tasks_id]
+            wait_sch_task = self.schedule_id_map[waiting_task_id]
             if self.schedule[wait_sch_task][0].subdomain_id != task[0].subdomain_id :
                 candidate_rank = b_level[wait_sch_task] + constant
             else :
-                candidate_rank = rank[wait_sch_task] - 1
-            if candidate_rank > rank[i] :
-                rank[i] = candidate_rank
-            if (b_level[wait_sch_taks]+1) > b_level[i] :
-                b_level[i] = b_level[wait_sch_taks]+1
+                candidate_rank = ranks[wait_sch_task] - 1
+            if candidate_rank > ranks[i] :
+                ranks[i] = candidate_rank
+            if (b_level[wait_sch_task]+1) > b_level[i] :
+                b_level[i] = b_level[wait_sch_task]+1
 
 # Compute the new scheduling
-      
+    new_schedule = []
+# Set is a mutable so cannot use [set()]*n_procs
+    n_procs = max(max(self.n_p))+1
+    proc_start_time = [set() for i in range(n_procs)]
+    end_time = int(self.end_time/10)
+    for i in range(n_procs) :
+      for j in range(0,end_time+1) :
+        proc_start_time[i].add(j)
+    tasks_done = set()
+    for i in range(len(self.schedule)):
+        rejected_tasks = set()
+        found = False
+        while found==False :
+            found = True
+            max_rank = -1 
+            pos = -1
+            for j in range(len(self.schedule)):
+                if ranks[j] > max_rank and pos not in rejected_tasks:
+                    max_rank = ranks[j]
+                    pos = j
+            tmp_task = self.schedule[pos][0]
+            for req_task_id in tmp_task.required_tasks :
+                if req_task_id not in tasks_done :
+                    found = False
+                    rejected_tasks.add(pos)
+                    break
+
+        ranks[pos] = -1
+        task = self.schedule[pos][0]
+        starting_time = 0
+        for scheduled_task in new_schedule :
+          scheduled_task_id = scheduled_task[0].task_id
+          if scheduled_task_id in task.required_tasks :
+            if scheduled_task[2] > starting_time :
+              starting_time = scheduled_task[2]
+        candidate_t = max(starting_time,min(proc_start_time[task.subdomain_id]))
+        enough_free_t = False
+        while enough_free_t==False :
+          enough_free_t = True
+          for j in range(task.delta_t) :
+            if (candidate_t+j) not in proc_start_time[task.subdomain_id] :
+              enough_free_t = False
+              candidate_t += 1
+              break
+        if task.task_id==190 :
+            print (candidate_t,starting_time,min(proc_start_time[9]),
+                    max(starting_time,min(proc_start_time[9])))
+        end_time = candidate_t+task.delta_t
+        new_schedule.append([task,candidate_t,end_time])
+        for j in range(task.delta_t) :
+          proc_start_time[task.subdomain_id].remove(candidate_t+j)
+        tasks_done.add(task.task_id)
+    self.schedule = new_schedule
+
+    self.Update_schedule_id_map()
+
+    self.start_time = 100000
+    self.end_time = 0
+    for task in self.schedule :
+      if task[1] < self.start_time :
+        self.start_time = task[1]
+      if task[2] > self.end_time :
+        self.end_time = task[2]
+    print("Initial scheduling")
+    print("Start time",self.start_time)
+    print("End time",self.end_time)
+    print("Execution time",self.end_time-self.start_time)
 
 
 #----------------------------------------------------------------------------#
@@ -463,6 +534,9 @@ class CAP_PFB(object) :
     if init_sched=='serial' :
         print('Create serial initial scheduling')
         self.Create_serial_initial_scheduling()
+    elif init_sched=='DFDS' :
+        print('Create DFDS initial scheduling')
+        self.Create_dfds_local_initial_scheduling()
     else :
         print('Create initial scheduling')
         self.Create_initial_scheduling()
@@ -738,9 +812,6 @@ class CAP_PFB(object) :
           if self.schedule[i][1]<earliest_time :
             earliest_time = self.schedule[i][1]
             old_pos = i
-      #  for old_pos in range(new_pos,end_pos) :
-      #    if self.schedule[old_pos][1]==earliest_time :
-      #      break
         self.schedule[new_pos],self.schedule[old_pos] = self.schedule[old_pos],\
             self.schedule[new_pos]
       pos = end_pos

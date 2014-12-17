@@ -13,6 +13,7 @@ import copy
 import random
 import TASK
 
+
 class LOCAL_SEARCH(object) :
     """This class does a local search using a downhill method."""
 
@@ -159,18 +160,19 @@ class LOCAL_SEARCH(object) :
 
 #----------------------------------------------------------------------------#
 
-    def Execute_search(self) :
+    def Execute_search(self):
         """ """
 
-        print('Execution time before local search: ',self.end_time-self.start_time)
+        print('Execution time before local search: ',
+              self.end_time-self.start_time)
         n_improvements = 0
-        for i in range(self.n_samples) :
-            #if (i%5)==0 :
-            #    print('Executing local search ',i)
-            if self.Compute_sweep()==True :
+        for i in range(self.n_samples):
+            if self.Compute_sweep() is True:
                 n_improvements += 1
-            print('Executed local search',i,'execution time',self.end_time-self.start_time)
-        print('Execution time after local search:',self.end_time-self.start_time)
+            print('Executed local search', i, 'execution time',
+                  self.end_time-self.start_time)
+        print('Execution time after local search:',
+              self.end_time-self.start_time)
 
-        print('Number of steps that improve the scheduling:',n_improvements,\
-                'out of',self.n_samples)
+        print('Number of steps that improve the scheduling:', n_improvements,
+              'out of', self.n_samples)
