@@ -12,14 +12,16 @@ import time
 import CAP_PFB
 import TASK
 
+
 start = time.time()
 init_sched = 'serial'
 randomized = False
 random.seed(0)
+forbid_oscillations = False
 do_local_search = False
 max_it = 20
 tol = 1e-3
-sn = 8 #2, 4, 8, 16
+sn = 8  #2, 4, 8, 16
 #n_x = 2
 #n_y = 2
 #n_p = [[0,1],[2,3]]
@@ -124,7 +126,7 @@ sn = 8 #2, 4, 8, 16
 #        [i for i in range(4340,4410)],[i for i in range(4410,4480)], 
 #        [i for i in range(4480,4550)],[i for i in range(4550,4620)], 
 #        [i for i in range(4620,4690)],[i for i in range(4690,4760)], 
-#        [i for i in range(4760,4830)],[i for i in range(4830,4900)]] 
+#        [i for i in range(4760,4830)],[i for i in range(4830,4900)]]
 #delta_t = [[1]*70]*70
 #n_x = 20
 #n_y = 20
@@ -483,15 +485,15 @@ cells_to_refine=[]
 #        [39,1],[39,3],[39,5],[39,7],[39,9],[39,11],[39,13],[39,15],[39,17],[39,19],[39,21],[39,23],[39,25],[39,27],[39,29],[39,31],[39,33],[39,35],[39,37],[39,39]]
 
 
-
 print('start building tasks')
 tasks = CAP_PFB.build_tasks(n_x, n_y, n_p, delta_t, sn, cells_to_refine)
-if randomized==True:
-  random.shuffle(tasks)
-cap_pfb = CAP_PFB.CAP_PFB(tasks, max_it, tol, n_p, do_local_search)
+if randomized is True:
+    random.shuffle(tasks)
+cap_pfb = CAP_PFB.CAP_PFB(tasks, max_it, tol, n_p, forbid_oscillations,
+                          do_local_search)
 cap_pfb.Run(init_sched)
 end = time.time()
-print('Elapsed time',end-start)
+print('Elapsed time', end-start)
 print()
 print()
 print('Scheduling')
@@ -500,12 +502,12 @@ n_procs = max(max(n_p))+1
 part_schedule = []
 for i in range(n_procs):
     part_schedule.append([])
-for task in schedule :
+for task in schedule:
     part_schedule[task[0].subdomain_id].append(task)
-for i in range(n_procs) :
+for i in range(n_procs):
     part_schedule[i].sort(key=lambda tup: tup[1])
-for i in range(n_procs) :
+for i in range(n_procs):
     print()
-    print('Processor',i)
-    for task in part_schedule[i] :
+    print('Processor', i)
+    for task in part_schedule[i]:
         print(task)

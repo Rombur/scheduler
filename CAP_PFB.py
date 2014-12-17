@@ -321,7 +321,7 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
 class CAP_PFB(object) :
   """This class creates the CAP-PFB sweep ordering."""
 
-  def __init__(self,tasks,max_it,tol,n_p,do_local_search) :
+  def __init__(self,tasks,max_it,tol,n_p,forbid_oscillations,do_local_search) :
     """The constructor requires a list of tasks to order, a maximum number of
     iterations, a tolerance, and the processors arrangement."""
     
@@ -330,6 +330,7 @@ class CAP_PFB(object) :
     self.max_it = max_it
     self.tol = tol
     self.n_p = n_p
+    self.forbid_oscillations = forbid_oscillations
     self.do_local_search = do_local_search
     self.task_id_map = dict()
     for task in self.tasks :
@@ -501,9 +502,6 @@ class CAP_PFB(object) :
               enough_free_t = False
               candidate_t += 1
               break
-        if task.task_id==190 :
-            print (candidate_t,starting_time,min(proc_start_time[9]),
-                    max(starting_time,min(proc_start_time[9])))
         end_time = candidate_t+task.delta_t
         new_schedule.append([task,candidate_t,end_time])
         for j in range(task.delta_t) :
@@ -550,43 +548,45 @@ class CAP_PFB(object) :
       old_end = self.end_time
       old_execution = old_end-old_start
       self.Backward_iteration()
-      execution = self.end_time-self.start_time
-      #if execution > old_execution :
-      #    self.schedule = copy.deepcopy(tmp_schedule)
-      #    self.schedule.reverse()
-      #    execution = old_execution
-      #    self.start_time = tmp_start
-      #    self.end_time = tmp_end
-      #    self.Update_schedule_id_map()
-      #else :
-      #    tmp_schedule = copy.deepcopy(self.schedule)
-      #    tmp_schedule.reverse()
-      #    tmp_start = self.start_time
-      #    tmp_end = self.end_time
-      #print(" Best schedule")
-      #print(" Start time",self.start_time)
-      #print(" End time",self.end_time)
-      #print(" Execution time",self.end_time-self.start_time)
+      if self.forbid_oscillations==True :
+          execution = self.end_time-self.start_time
+          if execution > old_execution :
+              self.schedule = copy.deepcopy(tmp_schedule)
+              self.schedule.reverse()
+              execution = old_execution
+              self.start_time = tmp_start
+              self.end_time = tmp_end
+              self.Update_schedule_id_map()
+          else :
+              tmp_schedule = copy.deepcopy(self.schedule)
+              tmp_schedule.reverse()
+              tmp_start = self.start_time
+              tmp_end = self.end_time
+          print(" Best schedule")
+          print(" Start time",self.start_time)
+          print(" End time",self.end_time)
+          print(" Execution time",self.end_time-self.start_time)
 
       self.Forward_iteration()
-      new_execution = self.end_time-self.start_time
-      #if new_execution > execution :
-      #    self.schedule = copy.deepcopy(tmp_schedule)
-      #    new_execution = execution
-      #    self.start_time = tmp_start
-      #    self.end_time = tmp_end
-      #    self.Update_schedule_id_map()
-      #else :
-      #    tmp_schedule = copy.deepcopy(self.schedule)
-      #    tmp_start = self.start_time
-      #    tmp_end = self.end_time
-      #print(" Best schedule")
-      #print(" Start time",self.start_time)
-      #print(" End time",self.end_time)
-      #print(" Execution time",self.end_time-self.start_time)
+      if self.forbid_oscillations==True :
+          new_execution = self.end_time-self.start_time
+          if new_execution > execution :
+              self.schedule = copy.deepcopy(tmp_schedule)
+              new_execution = execution
+              self.start_time = tmp_start
+              self.end_time = tmp_end
+              self.Update_schedule_id_map()
+          else :
+              tmp_schedule = copy.deepcopy(self.schedule)
+              tmp_start = self.start_time
+              tmp_end = self.end_time
+          print(" Best schedule")
+          print(" Start time",self.start_time)
+          print(" End time",self.end_time)
+          print(" Execution time",self.end_time-self.start_time)
 
-     # if (old_execution-new_execution)<self.tol :
-     #   break
+          if (old_execution-new_execution)<self.tol :
+            break
 
     if self.do_local_search==True :
       n_samples = 500
