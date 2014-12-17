@@ -9,19 +9,10 @@
 """In this module, we implement all the functions and the class needed to
 compute a CAP-PFB ordering."""
 
-import collections
 import itertools
 import copy
-
-Task = collections.namedtuple('Task', ['subdomain_id', 'task_id',
-                              'required_tasks', 'waiting_tasks', 'delta_t',
-                              'pos'])
-Task.__doc__ = """Represent a task in Ouranos.
-
-Each task is associated to a processor (subdomain_id), has an id (task_id), has
-set of tasks that must be executed before it can be executed, has set of tasks
-that are waiting for this task to be executed, and needs a certain time to be
-executed (delta_t)."""
+import LOCAL_SEARCH
+import TASK
 
 
 def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
@@ -54,8 +45,8 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
                 waiting_tasks.append((i+1)+j*n_x+task_id_offset)
             if j<(n_y-1) :
                 waiting_tasks.append(i+(j+1)*n_x+task_id_offset)
-            task = Task(subdomain_id,task_id,required_tasks,waiting_tasks,
-                    delta_t,pos)
+            task = TASK.TASK(subdomain_id,task_id,required_tasks,waiting_tasks,
+                    delta_t,pos,dir)
             tasks.append(task)
             if [i,j] in cells_to_refine :
                 tasks_to_refine.append([task,0])
@@ -77,8 +68,8 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
                 waiting_tasks.append((i+1)+j*n_x+task_id_offset)
             if j>=1 :
                 waiting_tasks.append(i+(j-1)*n_x+task_id_offset)
-            task = Task(subdomain_id,task_id,required_tasks,waiting_tasks,
-                    delta_t,pos)
+            task = TASK.TASK(subdomain_id,task_id,required_tasks,waiting_tasks,
+                    delta_t,pos,dir)
             tasks.append(task)
             if [i,j] in cells_to_refine :
                 tasks_to_refine.append([task,1])
@@ -100,8 +91,8 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
                 waiting_tasks.append((i-1)+j*n_x+task_id_offset)
             if j<(n_y-1) :
                 waiting_tasks.append(i+(j+1)*n_x+task_id_offset)
-            task = Task(subdomain_id,task_id,required_tasks,waiting_tasks,
-                    delta_t,pos)
+            task = TASK.TASK(subdomain_id,task_id,required_tasks,waiting_tasks,
+                    delta_t,pos,dir)
             tasks.append(task)
             if [i,j] in cells_to_refine :
                 tasks_to_refine.append([task,2])
@@ -124,8 +115,8 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
                 waiting_tasks.append((i-1)+j*n_x+task_id_offset)
             if j>=1 :
                 waiting_tasks.append(i+(j-1)*n_x+task_id_offset)
-            task = Task(subdomain_id,task_id,required_tasks,waiting_tasks, 
-                    delta_t,pos)
+            task = TASK.TASK(subdomain_id,task_id,required_tasks,waiting_tasks, 
+                    delta_t,pos,dir)
             tasks.append(task)
             if [i,j] in cells_to_refine :
                 tasks_to_refine.append([task,3])
@@ -138,32 +129,32 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
         subdomain_id = task.subdomain_id
         task_id = task.task_id
         if dir==0 :
-            tasks.append(Task(subdomain_id,task_id_offset+0,task.required_tasks,
-                [task_id_offset+1,task_id_offset+2],int(task.delta_t/4),task.pos))
+            tasks.append(TASK.TASK(subdomain_id,task_id_offset+0,task.required_tasks,
+                [task_id_offset+1,task_id_offset+2],int(task.delta_t/4),task.pos,task.dir))
             # On the corner no task may be required or waiting
             if task.required_tasks==[] :
-                tasks.append(Task(subdomain_id,task_id_offset+1,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+1,
                     [task_id_offset+0],
-                    [task_id_offset+3,min(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+2,
+                    [task_id_offset+3,min(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+2,
                     [task_id_offset+0],
-                    [task_id_offset+3,max(task.waiting_tasks)],int(task.delta_t/4),task.pos))
+                    [task_id_offset+3,max(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
             elif task.waiting_tasks==[] :
-                tasks.append(Task(subdomain_id,task_id_offset+1,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+1,
                     [task_id_offset+0,min(task.required_tasks)],
-                    [task_id_offset+3],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+2,
+                    [task_id_offset+3],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+2,
                     [task_id_offset+0,max(task.required_tasks)],
-                    [task_id_offset+3],int(task.delta_t/4),task.pos))
+                    [task_id_offset+3],int(task.delta_t/4),task.pos,task.dir))
             else :
-                tasks.append(Task(subdomain_id,task_id_offset+1,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+1,
                     [task_id_offset+0,min(task.required_tasks)],
-                    [task_id_offset+3,min(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+2,
+                    [task_id_offset+3,min(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+2,
                     [task_id_offset+0,max(task.required_tasks)],
-                    [task_id_offset+3,max(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-            tasks.append(Task(subdomain_id,task_id_offset+3,[task_id_offset+1,
-                task_id_offset+2],task.waiting_tasks,int(task.delta_t/4),task.pos))
+                    [task_id_offset+3,max(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+            tasks.append(TASK.TASK(subdomain_id,task_id_offset+3,[task_id_offset+1,
+                task_id_offset+2],task.waiting_tasks,int(task.delta_t/4),task.pos,task.dir))
             for other_task in tasks :
                 if task_id in other_task.required_tasks :
                     other_task.required_tasks.remove(task_id)
@@ -182,32 +173,32 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
                         other_task.waiting_tasks.append(task_id_offset+0)
                         other_task.waiting_tasks.append(task_id_offset+2)
         if dir==1 :
-            tasks.append(Task(subdomain_id,task_id_offset+2,task.required_tasks,
-                [task_id_offset+0,task_id_offset+3],int(task.delta_t/4),task.pos))
+            tasks.append(TASK.TASK(subdomain_id,task_id_offset+2,task.required_tasks,
+                [task_id_offset+0,task_id_offset+3],int(task.delta_t/4),task.pos,task.dir))
             # On the corner no task may be required or waiting
             if task.required_tasks==[] :
-                tasks.append(Task(subdomain_id,task_id_offset+0,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+0,
                     [task_id_offset+2],
-                    [task_id_offset+1,min(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+3,
+                    [task_id_offset+1,min(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+3,
                     [task_id_offset+2],
-                    [task_id_offset+1,max(task.waiting_tasks)],int(task.delta_t/4),task.pos))
+                    [task_id_offset+1,max(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
             elif task.waiting_tasks==[] :
-                tasks.append(Task(subdomain_id,task_id_offset+0,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+0,
                     [task_id_offset+2,min(task.required_tasks)],
-                    [task_id_offset+1],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+3,
+                    [task_id_offset+1],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+3,
                     [task_id_offset+2,max(task.required_tasks)],
-                    [task_id_offset+1],int(task.delta_t/4),task.pos))
+                    [task_id_offset+1],int(task.delta_t/4),task.pos,task.dir))
             else :
-                tasks.append(Task(subdomain_id,task_id_offset+0,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+0,
                     [task_id_offset+2,min(task.required_tasks)],
-                    [task_id_offset+1,min(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+3,
+                    [task_id_offset+1,min(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+3,
                     [task_id_offset+2,max(task.required_tasks)],
-                    [task_id_offset+1,max(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-            tasks.append(Task(subdomain_id,task_id_offset+1,[task_id_offset+0,
-                task_id_offset+3],task.waiting_tasks,int(task.delta_t/4),task.pos))
+                    [task_id_offset+1,max(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+            tasks.append(TASK.TASK(subdomain_id,task_id_offset+1,[task_id_offset+0,
+                task_id_offset+3],task.waiting_tasks,int(task.delta_t/4),task.pos,task.dir))
             for other_task in tasks :
                 if task_id in other_task.required_tasks :
                     other_task.required_tasks.remove(task_id)
@@ -226,32 +217,32 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
                         other_task.waiting_tasks.append(task_id_offset+0)
                         other_task.waiting_tasks.append(task_id_offset+2)
         if dir==2 :
-            tasks.append(Task(subdomain_id,task_id_offset+1,task.required_tasks,
-                [task_id_offset+0,task_id_offset+3],int(task.delta_t/4),task.pos))
+            tasks.append(TASK.TASK(subdomain_id,task_id_offset+1,task.required_tasks,
+                [task_id_offset+0,task_id_offset+3],int(task.delta_t/4),task.pos,task.dir))
             # On the corner no task may be required or waiting
             if task.required_tasks==[] :
-                tasks.append(Task(subdomain_id,task_id_offset+0,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+0,
                     [task_id_offset+1],
-                    [task_id_offset+2,min(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+3,
+                    [task_id_offset+2,min(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+3,
                     [task_id_offset+1],
-                    [task_id_offset+2,max(task.waiting_tasks)],int(task.delta_t/4),task.pos))
+                    [task_id_offset+2,max(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
             elif task.waiting_tasks==[] :
-                tasks.append(Task(subdomain_id,task_id_offset+0,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+0,
                     [task_id_offset+1,min(task.required_tasks)],
-                    [task_id_offset+2],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+3,
+                    [task_id_offset+2],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+3,
                     [task_id_offset+1,max(task.required_tasks)],
-                    [task_id_offset+2],int(task.delta_t/4),task.pos))
+                    [task_id_offset+2],int(task.delta_t/4),task.pos,task.dir))
             else :
-                tasks.append(Task(subdomain_id,task_id_offset+0,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+0,
                     [task_id_offset+1,min(task.required_tasks)],
-                    [task_id_offset+2,min(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+3,
+                    [task_id_offset+2,min(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+3,
                     [task_id_offset+1,max(task.required_tasks)],
-                    [task_id_offset+2,max(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-            tasks.append(Task(subdomain_id,task_id_offset+2,[task_id_offset+0,
-                task_id_offset+3],task.waiting_tasks,int(task.delta_t/4),task.pos))
+                    [task_id_offset+2,max(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+            tasks.append(TASK.TASK(subdomain_id,task_id_offset+2,[task_id_offset+0,
+                task_id_offset+3],task.waiting_tasks,int(task.delta_t/4),task.pos,task.dir))
             for other_task in tasks :
                 if task_id in other_task.required_tasks :
                     other_task.required_tasks.remove(task_id)
@@ -270,32 +261,32 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
                         other_task.waiting_tasks.append(task_id_offset+1)
                         other_task.waiting_tasks.append(task_id_offset+3)
         if dir==3 :
-            tasks.append(Task(subdomain_id,task_id_offset+3,task.required_tasks,
-                [task_id_offset+1,task_id_offset+2],int(task.delta_t/4),task.pos))
+            tasks.append(TASK.TASK(subdomain_id,task_id_offset+3,task.required_tasks,
+                [task_id_offset+1,task_id_offset+2],int(task.delta_t/4),task.pos,task.dir))
             # On the corner no task may be required or waiting
             if task.required_tasks==[] :
-                tasks.append(Task(subdomain_id,task_id_offset+1,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+1,
                     [task_id_offset+3],
-                    [task_id_offset+0,min(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+2,
+                    [task_id_offset+0,min(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+2,
                     [task_id_offset+3],
-                    [task_id_offset+0,max(task.waiting_tasks)],int(task.delta_t/4),task.pos))
+                    [task_id_offset+0,max(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
             elif task.waiting_tasks==[] :
-                tasks.append(Task(subdomain_id,task_id_offset+1,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+1,
                     [task_id_offset+3,min(task.required_tasks)],
-                    [task_id_offset+0],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+2,
+                    [task_id_offset+0],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+2,
                     [task_id_offset+3,max(task.required_tasks)],
-                    [task_id_offset+0],int(task.delta_t/4),task.pos))
+                    [task_id_offset+0],int(task.delta_t/4),task.pos,task.dir))
             else :
-                tasks.append(Task(subdomain_id,task_id_offset+1,
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+1,
                     [task_id_offset+3,min(task.required_tasks)],
-                    [task_id_offset+0,min(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-                tasks.append(Task(subdomain_id,task_id_offset+2,
+                    [task_id_offset+0,min(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+                tasks.append(TASK.TASK(subdomain_id,task_id_offset+2,
                     [task_id_offset+3,max(task.required_tasks)],
-                    [task_id_offset+0,max(task.waiting_tasks)],int(task.delta_t/4),task.pos))
-            tasks.append(Task(subdomain_id,task_id_offset+0,[task_id_offset+1,
-                task_id_offset+2],task.waiting_tasks,int(task.delta_t/4),task.pos))
+                    [task_id_offset+0,max(task.waiting_tasks)],int(task.delta_t/4),task.pos,task.dir))
+            tasks.append(TASK.TASK(subdomain_id,task_id_offset+0,[task_id_offset+1,
+                task_id_offset+2],task.waiting_tasks,int(task.delta_t/4),task.pos,task.dir))
             for other_task in tasks :
                 if task_id in other_task.required_tasks :
                     other_task.required_tasks.remove(task_id)
@@ -325,7 +316,7 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine) :
 class CAP_PFB(object) :
   """This class creates the CAP-PFB sweep ordering."""
 
-  def __init__(self,tasks,max_it,tol,n_p) :
+  def __init__(self,tasks,max_it,tol,n_p,do_local_search) :
     """The constructor requires a list of tasks to order, a maximum number of
     iterations, a tolerance, and the processors arrangement."""
     
@@ -334,6 +325,7 @@ class CAP_PFB(object) :
     self.max_it = max_it
     self.tol = tol
     self.n_p = n_p
+    self.do_local_search = do_local_search
     self.task_id_map = dict()
     for task in self.tasks :
       self.task_id_map[task.task_id] = task
@@ -349,7 +341,6 @@ class CAP_PFB(object) :
     proc_end_time = [0]*(max(max(self.n_p))+1)
     pos = 0
     while len(tasks_done)!=len(self.tasks) :
-      #print('n tasks done',len(tasks_done))
       for task in self.tasks :
 # Check that the task is ready to be executed
         if task.task_id not in tasks_done :
@@ -391,11 +382,90 @@ class CAP_PFB(object) :
 
 #----------------------------------------------------------------------------#
 
-  def Run(self) :
+  def Create_serial_initial_scheduling(self) :
+    """ """
+
+    self.schedule = []
+    self.schedule_id_map = dict()
+    tasks_done = set()
+    pos = 0
+    current_dir = 0
+    starting_time = 0
+    while len(tasks_done)!=len(self.tasks) :
+      update_dir = True
+      for task in self.tasks :
+# Check that the task is ready to be executed
+        if task.task_id not in tasks_done and task.dir==current_dir:
+          update_dir = False
+          ready = True
+          for required_task in task.required_tasks :
+            if self.task_id_map[required_task].task_id not in tasks_done :
+              ready = False
+              break
+          if ready==True :  
+            self.schedule.append([task,starting_time,starting_time+task.delta_t])
+            self.schedule_id_map[task.task_id] = pos
+            tasks_done.add(task.task_id)
+            starting_time += task.delta_t
+            pos += 1
+      if update_dir==True :
+          current_dir += 1
+
+    self.start_time = 100000
+    self.end_time = 0
+    for task in self.schedule :
+      if task[1] < self.start_time :
+        self.start_time = task[1]
+      if task[2] > self.end_time :
+        self.end_time = task[2]
+    print("Initial scheduling")
+    print("Start time",self.start_time)
+    print("End time",self.end_time)
+    print("Execution time",self.end_time-self.start_time)
+
+
+#----------------------------------------------------------------------------#
+
+  def Create_dfds_local_initial_scheduling(self) :
+    """ """
+
+
+# Use the serial scheduling to sort the task
+    self.Create_serial_initial_scheduling()
+
+# Compute the ranks
+    ranks = [0]*len(self.tasks)    
+    b_level = [0]*len(self.tasks)
+    constant = 10000
+    done = False
+    for i in range(len(self.schedule)-1,-1,-1):
+        task = self.schedule[i]
+        for waiting_task_id in task[0].waiting_tasks :
+            wait_sch_task = self.schedule_id_map[waiting_tasks_id]
+            if self.schedule[wait_sch_task][0].subdomain_id != task[0].subdomain_id :
+                candidate_rank = b_level[wait_sch_task] + constant
+            else :
+                candidate_rank = rank[wait_sch_task] - 1
+            if candidate_rank > rank[i] :
+                rank[i] = candidate_rank
+            if (b_level[wait_sch_taks]+1) > b_level[i] :
+                b_level[i] = b_level[wait_sch_taks]+1
+
+# Compute the new scheduling
+      
+
+
+#----------------------------------------------------------------------------#
+
+  def Run(self,init_sched) :
     """Driver for the run."""
 
-    print('Create initial scheduling')
-    self.Create_initial_scheduling()
+    if init_sched=='serial' :
+        print('Create serial initial scheduling')
+        self.Create_serial_initial_scheduling()
+    else :
+        print('Create initial scheduling')
+        self.Create_initial_scheduling()
     tmp_schedule = copy.deepcopy(self.schedule)
     tmp_start = self.start_time
     tmp_end = self.end_time
@@ -407,42 +477,52 @@ class CAP_PFB(object) :
       old_execution = old_end-old_start
       self.Backward_iteration()
       execution = self.end_time-self.start_time
-      if execution > old_execution :
-          self.schedule = copy.deepcopy(tmp_schedule)
-          self.schedule.reverse()
-          old_execution = execution
-          self.start_time = tmp_start
-          self.end_time = tmp_end
-          self.Update_schedule_id_map()
-      else :
-          tmp_schedule = copy.deepcopy(self.schedule)
-          tmp_schedule.reverse()
-          tmp_start = self.start_time
-          tmp_end = self.end_time
-      print("Best schedule")
-      print("Start time",self.start_time)
-      print("End time",self.end_time)
-      print("Execution time",self.end_time-self.start_time)
+      #if execution > old_execution :
+      #    self.schedule = copy.deepcopy(tmp_schedule)
+      #    self.schedule.reverse()
+      #    execution = old_execution
+      #    self.start_time = tmp_start
+      #    self.end_time = tmp_end
+      #    self.Update_schedule_id_map()
+      #else :
+      #    tmp_schedule = copy.deepcopy(self.schedule)
+      #    tmp_schedule.reverse()
+      #    tmp_start = self.start_time
+      #    tmp_end = self.end_time
+      #print(" Best schedule")
+      #print(" Start time",self.start_time)
+      #print(" End time",self.end_time)
+      #print(" Execution time",self.end_time-self.start_time)
 
       self.Forward_iteration()
       new_execution = self.end_time-self.start_time
-      if new_execution > execution :
-          self.schedule = copy.deepcopy(tmp_schedule)
-          new_execution = execution
-          self.start_time = tmp_start
-          self.end_time = tmp_end
-          self.Update_schedule_id_map()
-      else :
-          tmp_schedule = copy.deepcopy(self.schedule)
-          tmp_start = self.start_time
-          tmp_end = self.end_time
-      print("Best schedule")
-      print("Start time",self.start_time)
-      print("End time",self.end_time)
-      print("Execution time",self.end_time-self.start_time)
+      #if new_execution > execution :
+      #    self.schedule = copy.deepcopy(tmp_schedule)
+      #    new_execution = execution
+      #    self.start_time = tmp_start
+      #    self.end_time = tmp_end
+      #    self.Update_schedule_id_map()
+      #else :
+      #    tmp_schedule = copy.deepcopy(self.schedule)
+      #    tmp_start = self.start_time
+      #    tmp_end = self.end_time
+      #print(" Best schedule")
+      #print(" Start time",self.start_time)
+      #print(" End time",self.end_time)
+      #print(" Execution time",self.end_time-self.start_time)
 
-      if (old_execution-new_execution)<self.tol :
-        break
+     # if (old_execution-new_execution)<self.tol :
+     #   break
+
+    if self.do_local_search==True :
+      n_samples = 500
+      n_procs = max(max(self.n_p))+1
+      local_search = LOCAL_SEARCH.LOCAL_SEARCH(self.schedule,n_procs,
+              self.start_time,self.end_time,n_samples)
+      local_search.Execute_search()
+      self.schedule = []
+      for proc in range(n_procs) :
+        self.schedule.append(local_search.schedule[proc])
 
 #----------------------------------------------------------------------------#
 
@@ -476,8 +556,6 @@ class CAP_PFB(object) :
     print('Compute_backward_ranks')
     ranks = [-1]*len(self.schedule)
     done = False
-#    while done==False :
-#      old_ranks = ranks.copy()
     pos = 0
     for task in self.schedule :
       for required_task_id in task[0].required_tasks :
@@ -489,9 +567,6 @@ class CAP_PFB(object) :
         if ranks[pos]<candidate_rank :
           ranks[pos] = candidate_rank
       pos += 1            
-
-#      if ranks==old_ranks :
-#        done = True
 
     return ranks
 
@@ -548,8 +623,10 @@ class CAP_PFB(object) :
       part_schedule[task[0].subdomain_id].append(task)
 # Set is a mutable so cannot use [set()]*n_procs
     proc_end_time = [set() for i in range(n_procs)]
+    start_time = max(self.start_time-100,
+            int(self.end_time-len(self.schedule)/10))
     for i in range(n_procs) :
-      for j in range(-self.start_time,self.end_time+1) :
+      for j in range(start_time,self.end_time+1) :
         proc_end_time[i].add(j)
 # Flag to know if the time of the waiting task has been update
     updated_time = [False]*len(self.schedule)
@@ -615,9 +692,6 @@ class CAP_PFB(object) :
 
     print('compute_forward_ranks')
     ranks = [10*len(self.schedule)]*len(self.schedule)
-    done = False
-#    while done==False :
-#      old_ranks = ranks.copy()
     pos = 0
     for task in self.schedule :
       for waiting_task_id in task[0].waiting_tasks :
@@ -630,8 +704,6 @@ class CAP_PFB(object) :
           ranks[pos] = candidate_rank
       pos += 1            
 
-#      if ranks==old_ranks :
-#        done = True
 
     return ranks
 
@@ -692,7 +764,7 @@ class CAP_PFB(object) :
 # Set is a mutable so cannot use [set()]*n_procs
     proc_start_time = [set() for i in range(n_procs)]
     for i in range(n_procs) :
-      for j in range(self.start_time,self.end_time+self.end_time) :
+      for j in range(self.start_time,self.end_time+100) :
         proc_start_time[i].add(j)
 # Flag to know if the time of the required task has been updated
     updated_time = [False]*len(self.schedule)
