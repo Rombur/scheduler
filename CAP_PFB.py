@@ -467,6 +467,7 @@ class CAP_PFB(object) :
       for j in range(0,end_time+1) :
         proc_start_time[i].add(j)
     tasks_done = set()
+    pos_list = list(range(len(self.schedule)))
     for i in range(len(self.schedule)):
         rejected_tasks = set()
         found = False
@@ -474,10 +475,13 @@ class CAP_PFB(object) :
             found = True
             max_rank = -1 
             pos = -1
-            for j in range(len(self.schedule)):
+            k = 0
+            for j in pos_list:
                 if ranks[j] > max_rank and pos not in rejected_tasks:
                     max_rank = ranks[j]
                     pos = j
+                    pos_to_pop = k
+                k += 1
             tmp_task = self.schedule[pos][0]
             for req_task_id in tmp_task.required_tasks :
                 if req_task_id not in tasks_done :
@@ -485,7 +489,7 @@ class CAP_PFB(object) :
                     rejected_tasks.add(pos)
                     break
 
-        ranks[pos] = -1
+        pos_list.pop(pos_to_pop)
         task = self.schedule[pos][0]
         starting_time = 0
         for scheduled_task in new_schedule :
