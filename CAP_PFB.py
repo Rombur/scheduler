@@ -445,10 +445,10 @@ class CAP_PFB(object) :
     constant = 10000
     done = False
     for i in range(len(self.schedule)-1,-1,-1):
-        task = self.schedule[i]
-        for waiting_task_id in task[0].waiting_tasks :
+        task = self.schedule[i][0]
+        for waiting_task_id in task.waiting_tasks :
             wait_sch_task = self.schedule_id_map[waiting_task_id]
-            if self.schedule[wait_sch_task][0].subdomain_id != task[0].subdomain_id :
+            if self.schedule[wait_sch_task][0].subdomain_id != task.subdomain_id :
                 candidate_rank = b_level[wait_sch_task] + constant
             else :
                 candidate_rank = ranks[wait_sch_task] - 1
@@ -467,7 +467,10 @@ class CAP_PFB(object) :
       for j in range(0,end_time+1) :
         proc_start_time[i].add(j)
     tasks_done = set()
-    pos_list = list(range(len(self.schedule)))
+    pos_list = [] 
+    for task in self.schedule :
+        if task[0].required_tasks == []:
+            pos_list.append(self.schedule_id_map[task[0].task_id])
     for i in range(len(self.schedule)):
         rejected_tasks = set()
         found = False
@@ -477,7 +480,7 @@ class CAP_PFB(object) :
             pos = -1
             k = 0
             for j in pos_list:
-                if ranks[j] > max_rank and pos not in rejected_tasks:
+                if ranks[j] > max_rank and j not in rejected_tasks:
                     max_rank = ranks[j]
                     pos = j
                     pos_to_pop = k
@@ -489,8 +492,12 @@ class CAP_PFB(object) :
                     rejected_tasks.add(pos)
                     break
 
-        pos_list.pop(pos_to_pop)
         task = self.schedule[pos][0]
+        pos_list.pop(pos_to_pop)
+        for waiting_task_id in task.waiting_tasks :
+            wait_sch_task = self.schedule_id_map[waiting_task_id]
+            if waiting_task_id not in tasks_done and wait_sch_task not in pos_list:
+                pos_list.append(wait_sch_task)
         starting_time = 0
         for scheduled_task in new_schedule :
           scheduled_task_id = scheduled_task[0].task_id
@@ -671,7 +678,7 @@ class CAP_PFB(object) :
         if end_pos==len(ranks) :
           break
       for new_pos in range(pos,end_pos) :
-        latest_time = 0
+        latest_time = -1
         for i in range(new_pos,end_pos) :
           if self.schedule[i][2]>latest_time :
             latest_time = self.schedule[i][2]
@@ -701,17 +708,24 @@ class CAP_PFB(object) :
       part_schedule[task[0].subdomain_id].append(task)
 # Set is a mutable so cannot use [set()]*n_procs
     proc_end_time = [set() for i in range(n_procs)]
+    end_time = self.end_time+1
     start_time = max(self.start_time-100,
             int(self.end_time-len(self.schedule)/10))
+    if start_time<0:
+        end_time -= start_time
+        start_time = 0
     for i in range(n_procs) :
-      for j in range(start_time,self.end_time+1) :
+      for j in range(start_time,end_time) :
         proc_end_time[i].add(j)
 # Flag to know if the time of the waiting task has been update
     updated_time = [False]*len(self.schedule)
 
     n_tasks = len(self.schedule)
     n_tasks_done = 0
+    old_n_tasks_done = -1
     while n_tasks_done!=n_tasks :
+      assert old_n_tasks_done!=n_tasks_done, 'No improvement in Backward scheduling.'
+      old_n_tasks_done = n_tasks_done
       for i in range(n_procs) :
         if len(part_schedule[i])!=0 :
           task = part_schedule[i][0]
@@ -811,7 +825,7 @@ class CAP_PFB(object) :
         if end_pos==size :
           break
       for new_pos in range(pos,end_pos) :
-        earliest_time = 1000000
+        earliest_time = 1e100
         for i in range(new_pos,end_pos) :
           if self.schedule[i][1]<earliest_time :
             earliest_time = self.schedule[i][1]
@@ -846,7 +860,10 @@ class CAP_PFB(object) :
 
     n_tasks = len(self.schedule)
     n_tasks_done = 0
+    old_n_tasks_done = -1
     while n_tasks_done!=n_tasks :
+      assert old_n_tasks_done!=n_tasks_done, 'No improvement in Forward scheduling.'
+      old_n_tasks_done = n_tasks_done
       for i in range(n_procs) :
         if len(part_schedule[i])!=0 :
           task = part_schedule[i][0]
