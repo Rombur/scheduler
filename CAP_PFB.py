@@ -714,6 +714,7 @@ class CAP_PFB(object) :
     if start_time<0:
         end_time -= start_time
         start_time = 0
+        self.end_time = end_time-1
     for i in range(n_procs) :
       for j in range(start_time,end_time) :
         proc_end_time[i].add(j)
