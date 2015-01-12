@@ -392,14 +392,15 @@ class CAP_PFB(object):
 
     def __init__(self, tasks, max_it, tol, n_p, forbid_oscillations,
                  do_local_search):
-        """The constructor requires a list of tasks to order, a maximum number of
-        iterations, a tolerance, and the processors arrangement."""
+        """The constructor requires a list of tasks to order, a maximum number 
+        of iterations, a tolerance,  the processors arrangement, a flag to 
+        forbid oscillations, and a flag to do a local search."""
 
         super().__init__()
         self.tasks = tasks
         self.max_it = max_it
         self.tol = tol
-        self.n_p = n_p
+        self.n_procs = max(max(self.n_p))+1
         self.forbid_oscillations = forbid_oscillations
         self.do_local_search = do_local_search
         self.task_id_map = dict()
@@ -414,7 +415,7 @@ class CAP_PFB(object):
         self.schedule = []
         self.schedule_id_map = dict()
         tasks_done = set()
-        proc_end_time = [0]*(max(max(self.n_p))+1)
+        proc_end_time = [0]*self.n_procs
         pos = 0
         while len(tasks_done) != len(self.tasks):
             for task in self.tasks:
@@ -531,11 +532,10 @@ class CAP_PFB(object):
 
 # Compute the new scheduling
         new_schedule = []
-# Set is a mutable so cannot use [set()]*n_procs
-        n_procs = max(max(self.n_p))+1
-        proc_start_time = [set() for i in range(n_procs)]
-        end_time = int(self.end_time/(n_procs/10))
-        for i in range(n_procs):
+# Set is a mutable so cannot use [set()]*self.n_procs
+        proc_start_time = [set() for i in range(self.n_procs)]
+        end_time = int(self.end_time/10))
+        for i in range(self.n_procs):
             for j in range(0, end_time+1):
                 proc_start_time[i].add(j)
         tasks_done = set()
@@ -664,13 +664,13 @@ class CAP_PFB(object):
 
         if self.do_local_search is True:
             n_samples = 500
-            n_procs = max(max(self.n_p))+1
-            local_search = LOCAL_SEARCH.LOCAL_SEARCH(self.schedule, n_procs,
+            local_search = LOCAL_SEARCH.LOCAL_SEARCH(self.schedule,
+                                                     self.n_procs,
                                                      self.start_time,
                                                      self.end_time, n_samples)
             local_search.Execute_search()
             self.schedule = []
-            for proc in range(n_procs):
+            for proc in range(self.n_procs):
                 self.schedule.append(local_search.schedule[proc])
 
 #----------------------------------------------------------------------------#
@@ -759,23 +759,22 @@ class CAP_PFB(object):
     def Backward_scheduling(self):
         """Compute a scheduling that starts the tasks as late as possible."""
 
-        n_procs = max(max(self.n_p))+1
 # Simulate multiple processsors
         part_schedule = []
-        for i in range(n_procs):
+        for i in range(self.n_procs):
             part_schedule.append([])
         for task in self.schedule:
             part_schedule[task[0].subdomain_id].append(task)
-# Set is a mutable so cannot use [set()]*n_procs
-        proc_end_time = [set() for i in range(n_procs)]
+# Set is a mutable so cannot use [set()]*self.n_procs
+        proc_end_time = [set() for i in rangen(self.n_procs)]
         end_time = self.end_time+1
         start_time = max(self.start_time-100,
-                         int(self.end_time-len(self.schedule)/(n_procs/10)))
+                         int(self.end_time-len(self.schedule)/10)))
         if start_time < 0:
             end_time -= start_time
             start_time = 0
             self.end_time = end_time-1
-        for i in range(n_procs):
+        for i in range(self.n_procs):
             for j in range(start_time, end_time):
                 proc_end_time[i].add(j)
 # Flag to know if the time of the waiting task has been update
@@ -788,7 +787,7 @@ class CAP_PFB(object):
             assert old_n_tasks_done != n_tasks_done,\
                 'No improvement in Backward scheduling.'
             old_n_tasks_done = n_tasks_done
-            for i in range(n_procs):
+            for i in range(self.n_procs):
                 if len(part_schedule[i]) != 0:
                     task = part_schedule[i][0]
                     ready = True
@@ -903,16 +902,15 @@ class CAP_PFB(object):
     def Forward_scheduling(self):
         """Compute a scheduling that starts the tasks as late as possible."""
 
-        n_procs = max(max(self.n_p))+1
 # Simulate multiple processors
         part_schedule = []
-        for i in range(n_procs):
+        for i in range(self.n_procs):
             part_schedule.append([])
         for task in self.schedule:
             part_schedule[task[0].subdomain_id].append(task)
-# Set is a mutable so cannot use [set()]*n_procs
-        proc_start_time = [set() for i in range(n_procs)]
-        for i in range(n_procs):
+# Set is a mutable so cannot use [set()]*self.n_procs
+        proc_start_time = [set() for i in range(self.n_procs)]
+        for i in range(self.n_procs):
             for j in range(self.start_time, self.end_time+100):
                 proc_start_time[i].add(j)
 # Flag to know if the time of the required task has been updated
@@ -925,7 +923,7 @@ class CAP_PFB(object):
             assert old_n_tasks_done != n_tasks_done,\
                 'No improvement in Forward scheduling.'
             old_n_tasks_done = n_tasks_done
-            for i in range(n_procs):
+            for i in range(self.n_procs):
                 if len(part_schedule[i]) != 0:
                     task = part_schedule[i][0]
                     ready = True
