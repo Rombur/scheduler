@@ -400,7 +400,7 @@ class CAP_PFB(object):
         self.tasks = tasks
         self.max_it = max_it
         self.tol = tol
-        self.n_procs = max(max(self.n_p))+1
+        self.n_procs = max(max(n_p))+1
         self.forbid_oscillations = forbid_oscillations
         self.do_local_search = do_local_search
         self.task_id_map = dict()
@@ -534,7 +534,7 @@ class CAP_PFB(object):
         new_schedule = []
 # Set is a mutable so cannot use [set()]*self.n_procs
         proc_start_time = [set() for i in range(self.n_procs)]
-        end_time = int(self.end_time/10))
+        end_time = int(self.end_time/10)
         for i in range(self.n_procs):
             for j in range(0, end_time+1):
                 proc_start_time[i].add(j)
@@ -769,7 +769,7 @@ class CAP_PFB(object):
         proc_end_time = [set() for i in rangen(self.n_procs)]
         end_time = self.end_time+1
         start_time = max(self.start_time-100,
-                         int(self.end_time-len(self.schedule)/10)))
+                         int(self.end_time-len(self.schedule)/10))
         if start_time < 0:
             end_time -= start_time
             start_time = 0
