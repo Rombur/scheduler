@@ -9,16 +9,19 @@
 
 import random
 import time
+import BRANCH_AND_BOUND
 import CAP_PFB
 import TASK
 
 
 start = time.time()
+print_output = False
 init_sched = 'serial'
 randomized = False
 random.seed(0)
 forbid_oscillations = False
 do_local_search = False
+branch_and_bound = True
 max_it = 20
 tol = 1e-3
 sn = 8  #2, 4, 8, 16
@@ -496,18 +499,24 @@ end = time.time()
 print('Elapsed time', end-start)
 print()
 print()
-print('Scheduling')
-schedule = cap_pfb.schedule
-n_procs = max(max(n_p))+1
-part_schedule = []
-for i in range(n_procs):
-    part_schedule.append([])
-for task in schedule:
-    part_schedule[task[0].subdomain_id].append(task)
-for i in range(n_procs):
-    part_schedule[i].sort(key=lambda tup: tup[1])
-for i in range(n_procs):
-    print()
-    print('Processor', i)
-    for task in part_schedule[i]:
-        print(task)
+if print_output is True:
+    print('Scheduling')
+    schedule = cap_pfb.schedule
+    n_procs = max(max(n_p))+1
+    part_schedule = []
+    for i in range(n_procs):
+        part_schedule.append([])
+    for task in schedule:
+        part_schedule[task[0].subdomain_id].append(task)
+    for i in range(n_procs):
+        part_schedule[i].sort(key=lambda tup: tup[1])
+    for i in range(n_procs):
+        print()
+        print('Processor', i)
+        for task in part_schedule[i]:
+            print(task)
+
+if branch_and_bound is True:
+    branch_and_bound = BRANCH_AND_BOUND.BRANCH_AND_BOUND(tasks, max(max(n_p))+1,
+            cap_pfb.end_time-cap_pfb.start_time, print_output)
+    branch_and_bound.Run()

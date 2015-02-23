@@ -766,7 +766,7 @@ class CAP_PFB(object):
         for task in self.schedule:
             part_schedule[task[0].subdomain_id].append(task)
 # Set is a mutable so cannot use [set()]*self.n_procs
-        proc_end_time = [set() for i in rangen(self.n_procs)]
+        proc_end_time = [set() for i in range(self.n_procs)]
         end_time = self.end_time+1
         start_time = max(self.start_time-100,
                          int(self.end_time-len(self.schedule)/10))
