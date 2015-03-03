@@ -47,13 +47,12 @@ class BRANCH_AND_BOUND(object):
 
 #----------------------------------------------------------------------------#
 
-    def Compute_subdomains_list(self):
+    def Compute_subdomains_list(self,node):
         """Compute the minimal subdomains list."""
 
         subdomains_set = set()
-        for node in self.nodes:
-            for task in node.tasks_ready:
-                subdomains_set.add(task.subdomain_id)
+        for task in node.tasks_ready:
+            subdomains_set.add(task.subdomain_id)
 
         return list(subdomains_set)
 
@@ -80,18 +79,18 @@ class BRANCH_AND_BOUND(object):
             new_tasks_ready = parent_node.tasks_ready[:]
             for task in given_tasks:
                 current_level.append(task)
-                if task not in new_tasks_done:
-                    new_tasks_done.append(task)
+                if task.task_id not in new_tasks_done:
+                    new_tasks_done.append(task.task_id)
                 new_tasks_ready.remove(task)
                 if max_delta_t < task.delta_t:
                     max_delta_t = task.delta_t
             new_graph.append(current_level)
 # Add new tasks to the tasks_ready list
             for task in self.tasks:
-                if task not in new_tasks_done:
+                if task.task_id not in new_tasks_done:
                     ready = True
-                    for required_task in task.required_tasks:
-                        if required_task not in new_tasks_done:
+                    for required_task_id in task.required_tasks:
+                        if required_task_id not in new_tasks_done:
                             ready = False
                             break
                     if ready is True:
@@ -100,11 +99,11 @@ class BRANCH_AND_BOUND(object):
 # The new cost is the cost of parent_node plus max_delta_t
             new_cost = parent_node.cost + max_delta_t
 #min_bound = max n_tasks left for a processor + 
-#            max(2*sqrt(procs that haven't executed),0)
+#            max(2*sqrt(procs that haven't executed)-4,0)
             tasks_left = [0 for i in range(self.n_processors)]
             started_procs = set()
             for task in self.tasks:
-                if task not in new_tasks_done:
+                if task.task_id not in new_tasks_done:
                     tasks_left[task.subdomain_id] += task.delta_t
                 else:
                     started_procs.add(task.subdomain_id)
@@ -151,22 +150,25 @@ class BRANCH_AND_BOUND(object):
         self.nodes.append(first_node)
 
         done = False
-        best_first = False
         while not done:
             lowest_bound = self.best_time
             n_tasks_done = 0
             pos = 0
             counter = 0
+            graph_length = 0
             for node in self.nodes:
-# Best-first search
-                if node.min_bound < lowest_bound:
+# Depth-first algorithm
+                if len(node.graph) > graph_length:
                     pos = counter
                     lowest_bound = node.min_bound
+                    graph_length = len(node.graph)
+                elif len(node.graph) == graph_length:
+                    if node.min_bound < lowest_bound:
+                        pos = counter
+                        lowest_bound = node.min_bound
                 counter += 1
 
-            subdomains_list = self.Compute_subdomains_list()
-            print(subdomains_list)
-            print(len(self.nodes))
+            subdomains_list = self.Compute_subdomains_list(self.nodes[pos])
 
 # The combination increases too fast so we first try to run as many processors
 # as possible. If we can add a node using as many processors as possible, we
@@ -190,11 +192,11 @@ class BRANCH_AND_BOUND(object):
                     break
 
 # The parent node itself can be deleted.
-            if self.nodes[pos].cost != self.nodes[pos].min_bound:
-                self.nodes.pop(pos)
+            self.nodes.pop(pos)
 
             done = False
             if (len(self.nodes) == 0):
+                print('All the possibilities have been exhausted')
                 done = True
             for node in self.nodes:
                 if len(node.tasks_ready) == 0:
@@ -225,4 +227,4 @@ class BRANCH_AND_BOUND(object):
             print('-------------')
             for task in level:
                 print('subdomain_id: '+str(task.subdomain_id))
-                print('Id: '+str(task.ID))
+                print('Id: '+str(task.task_id))
