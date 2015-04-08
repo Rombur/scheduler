@@ -22,8 +22,9 @@ random.seed(0)
 forbid_oscillations = False
 do_local_search = False
 branch_and_bound = True
-max_it = 20
+max_it = 3
 tol = 1e-3
+n_clusters = 100
 sn = 8  #2, 4, 8, 16
 #n_x = 2
 #n_y = 2
@@ -518,5 +519,5 @@ if print_output is True:
 
 if branch_and_bound is True:
     branch_and_bound = BRANCH_AND_BOUND.BRANCH_AND_BOUND(tasks, max(max(n_p))+1,
-            cap_pfb.end_time-cap_pfb.start_time, print_output)
+            cap_pfb.end_time-cap_pfb.start_time, print_output, n_clusters)
     branch_and_bound.Run()
