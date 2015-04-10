@@ -38,7 +38,8 @@ class NODE(object):
 class BRANCH_AND_BOUND(object):
     """Class solving the SOP using branch-and-bound algorithm."""
 
-    def __init__(self, tasks, n_processors, best_time, output, n_clusters):
+    def __init__(self, tasks, n_processors, best_time, output, n_clusters,
+            bound_estimator_type):
 
         super().__init__()
         self.tasks = tasks
@@ -47,7 +48,93 @@ class BRANCH_AND_BOUND(object):
         self.best_time = best_time
         self.output = output
         self.n_clusters = n_clusters
+        self.bound_estimator_type = bound_estimator_type
         self.current_directions = []
+# Create a map whose the key is the task_id and the value is the position of the
+# task in self.tasks
+        self.task_id_to_pos = [0 for i in range(self.n_tasks)]
+        for i in range(self.n_tasks):
+            self.task_id_to_pos[self.tasks[i].task_id] = i
+
+#----------------------------------------------------------------------------#
+
+    def Compute_b_level_recursive(self, task):
+        """Recursive function that computes the b-level of the task."""
+
+        b_level = task.delta_t
+# The size of the list needs to be at least one for the max function to work.
+        downstream_b_level = [0 for i in range(len(task.waiting_tasks)+1)]
+        pos = 0
+        for waiting_task_id in task.waiting_tasks:
+            waiting_task = self.tasks[self.task_id_to_pos[waiting_task_id]]
+            if waiting_task.b_level != 0:
+                downstream_b_level[pos] = waiting_task.b_level
+            else:
+                downstream_b_level[pos] = self.Compute_b_level_recursive(waiting_task)
+            pos += 1
+
+# Tuple are immutable so we need to replace task
+        b_level += max(downstream_b_level)
+        pos = self.task_id_to_pos[task.task_id]
+        self.tasks[pos] = self.tasks[pos]._replace(b_level=b_level)
+
+        return b_level 
+
+#----------------------------------------------------------------------------#
+
+    def Compute_b_level(self):
+        """Compute the b-level of all the tasks."""
+
+        pos = 0
+        for task in self.tasks:
+            if len(task.required_tasks) == 0:
+                self.Compute_b_level_recursive(task)
+
+#----------------------------------------------------------------------------#
+
+    def Compute_bound_estimator(self, tasks_ready, tasks_done):
+        """Compute a minimum bound estimator. The 'adams' bound estimator uses
+        the optimal sweep as a bound. The 'b-level' bound estimator uses the
+        b-level of the ready tasks."""
+        
+        if self.bound_estimator_type == 'adams':
+#min_bound = max n_tasks left for a processor + 
+#            max(2*sqrt(procs that haven't executed)-4,0) +
+#            max(min(distance to reach proc boundary)
+            tasks_left = [0 for i in range(self.n_processors)]
+            started_procs = set()
+            for task in self.tasks:
+                if task.task_id not in tasks_done:
+                    tasks_left[task.subdomain_id] += task.delta_t
+                else:
+                    started_procs.add(task.subdomain_id)
+            sqrt_n_idle_procs = np.sqrt(self.n_processors-len(started_procs))
+            min_dist_to_new_proc = self.Compute_min_distance_to_new_proc(current_level)
+            bound_estimator = max(tasks_left) + max(2*sqrt_n_idle_procs-4.0)+\
+                    max(min_dist_to_new_proc)
+        else:
+# The bound is computed as follows: for each quadrant compute the minimum
+# b_level and add the largest number of ready tasks on a same processors. The
+# bound is the maximum of these "effective" b-level.
+            min_b_level = [1e6, 1e6, 1e6, 1e6]
+            serial_tasks = [ [0 for i in range(self.n_processors)] for j in range(4)]
+            first_serial_tasks = [ [True for i in range(self.n_processors)] for j in range(4)]
+            for task in tasks_ready:
+                dir = task.dir%4
+                if task.b_level < min_b_level[dir]:
+                    min_b_level[dir] = task.b_level
+                if first_serial_tasks[dir][task.subdomain_id] is True:
+                    first_serial_tasks[dir][task.subdomain_id] = False
+                else:
+                    serial_tasks[dir][task.subdomain_id] += task.delta_t
+
+            bound_estimator_list = [0 for i in range(4)]
+            for dir in range(4):
+                bound_estimator_list[dir] = min_b_level[dir] +\
+                        max(serial_tasks[dir])
+            bound_estimator = max(bound_estimator_list)
+
+        return bound_estimator
 
 #----------------------------------------------------------------------------#
 
@@ -70,10 +157,7 @@ class BRANCH_AND_BOUND(object):
         new_distance = [0 for i in range(len(task.waiting_tasks))]
         pos = 0
         for waiting_task_id in task.waiting_tasks:
-            for task_tmp in self.tasks:
-                if task_tmp.task_id == waiting_task_id:
-                    waiting_task = task_tmp
-                    break
+            waiting_task = self.tasks[self.task_id_to_pos[waiting_task_id]]
             if waiting_task.subdomain_id == task.subdomain_id:
                 new_distance[pos] = self.Compute_min_distance_recursive(waiting_task)
             pos += 1
@@ -89,15 +173,29 @@ class BRANCH_AND_BOUND(object):
         min_distance = [0 for i in range(self.n_processors)]
         for task in current_level:
             for waiting_task_id in task.waiting_tasks:
-                for task_tmp in self.tasks:
-                    if task_tmp.task_id == waiting_task_id:
-                        waiting_task = task_tmp
-                        break
+                waiting_taks = self.tasks[self.task_id_to_pos[waiting_task_id]]
                 if waiting_task.subdomain_id == task.subdomain_id:
                     distance = self.Compute_min_distance_recursive(waiting_task)
                     min_distance[task.subdomain_id] = distance
 
         return min_distance
+
+#----------------------------------------------------------------------------#
+
+    def Add_tasks_to_new_tasks_ready(self, given_tasks, new_tasks_done, new_tasks_ready):
+        """Add new taks to ready_tasks."""
+
+        for task in given_tasks:
+            for waiting_task_id in task.waiting_tasks:
+                waiting_task = self.tasks[self.task_id_to_pos[waiting_task_id]]
+                ready = True
+                for required_task_id in waiting_task.required_tasks:
+                    if required_task_id not in new_tasks_done:
+                        ready = False
+                        break
+                if ready is True:
+                    if waiting_task not in new_tasks_ready:
+                        new_tasks_ready.append(waiting_task)
 
 #----------------------------------------------------------------------------#
 
@@ -119,35 +217,14 @@ class BRANCH_AND_BOUND(object):
                 max_delta_t = task.delta_t
         new_graph.append(current_level)
 # Add new tasks to the tasks_ready list
-        for task in self.tasks:
-            if task.task_id not in new_tasks_done:
-                ready = True
-                for required_task_id in task.required_tasks:
-                    if required_task_id not in new_tasks_done:
-                        ready = False
-                        break
-                if ready is True:
-                    if task not in new_tasks_ready:
-                        new_tasks_ready.append(task)
+        self.Add_tasks_to_new_tasks_ready(given_tasks, new_tasks_done, new_tasks_ready)
 # The new cost is the cost of parent_node plus max_delta_t
         new_cost = parent_node.cost + max_delta_t
-#min_bound = max n_tasks left for a processor + 
-#            max(2*sqrt(procs that haven't executed)-4,0) +
-#            max(min(distance to reach proc boundary)
-        tasks_left = [0 for i in range(self.n_processors)]
-        started_procs = set()
-        for task in self.tasks:
-            if task.task_id not in new_tasks_done:
-                tasks_left[task.subdomain_id] += task.delta_t
-            else:
-                started_procs.add(task.subdomain_id)
-        sqrt_n_idle_procs = np.sqrt(self.n_processors-len(started_procs))
-        min_dist_to_new_proc = self.Compute_min_distance_to_new_proc(current_level)
-        new_min_bound = new_cost + max(tasks_left) +\
-                max(2*sqrt_n_idle_procs-4,0.) +\
-                max(min_dist_to_new_proc)
+# Compute new_min_bound
+        new_min_bound = new_cost + self.Compute_bound_estimator(new_tasks_ready,
+                new_tasks_done)
 # Create the new node
-        node = NODE(new_graph, new_tasks_done, new_tasks_ready, new_cost,
+        node = NODE(new_graph, new_tasks_done, new_tasks_ready, new_cost, 
                 new_min_bound)
 
         return node
@@ -249,13 +326,17 @@ class BRANCH_AND_BOUND(object):
         tasks_done = []
         tasks_ready = []
         cost = 0
+        if self.bound_estimator_type == 'adams':
 # When the grid is regular min_bound is given by P_x + P_y + N_tasks - 4 A good
 # approximation is to replace P_x + P_y by 2*sqrt(P) and N_tasks by 
 # max_proc(sum_i delta_t_i)
-        tasks_per_proc = [0 for i in range(self.n_processors)]
-        for task in self.tasks:
-          tasks_per_proc[task.subdomain_id] += task.delta_t
-        min_bound = 2*np.sqrt(self.n_processors) + max(tasks_per_proc) - 4
+            tasks_per_proc = [0 for i in range(self.n_processors)]
+            for task in self.tasks:
+                tasks_per_proc[task.subdomain_id] += task.delta_t
+            min_bound = 2*np.sqrt(self.n_processors) + max(tasks_per_proc) - 4
+        else:
+            self.Compute_b_level()
+            min_bound = self.Compute_bound_estimator(tasks_ready, tasks_done)
 # Build the tasks_ready list. This list constains all the tasks that are ready
 # to be executed. At first, these tasks are the one that do not require
 # another task.

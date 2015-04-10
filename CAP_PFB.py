@@ -47,7 +47,7 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
             if j < (n_y-1):
                 waiting_tasks.append(i+(j+1)*n_x+task_id_offset)
             task = TASK.TASK(subdomain_id, task_id, required_tasks,
-                             waiting_tasks, delta_t, pos, idir)
+                             waiting_tasks, delta_t, pos, idir, 0)
             tasks.append(task)
             if [i, j] in cells_to_refine:
                 tasks_to_refine.append([task, 0])
@@ -71,7 +71,7 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
             if j >= 1:
                 waiting_tasks.append(i+(j-1)*n_x+task_id_offset)
             task = TASK.TASK(subdomain_id, task_id, required_tasks,
-                             waiting_tasks, delta_t, pos, idir)
+                             waiting_tasks, delta_t, pos, idir, 0)
             tasks.append(task)
             if [i, j] in cells_to_refine:
                 tasks_to_refine.append([task, 1])
@@ -95,7 +95,7 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
             if j < (n_y-1):
                 waiting_tasks.append(i+(j+1)*n_x+task_id_offset)
             task = TASK.TASK(subdomain_id, task_id, required_tasks,
-                             waiting_tasks, delta_t, pos, idir)
+                             waiting_tasks, delta_t, pos, idir, 0)
             tasks.append(task)
             if [i, j] in cells_to_refine:
                 tasks_to_refine.append([task, 2])
@@ -120,7 +120,7 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
             if j >= 1:
                 waiting_tasks.append(i+(j-1)*n_x+task_id_offset)
             task = TASK.TASK(subdomain_id, task_id, required_tasks,
-                             waiting_tasks, delta_t, pos, idir)
+                             waiting_tasks, delta_t, pos, idir, 0)
             tasks.append(task)
             if [i, j] in cells_to_refine:
                 tasks_to_refine.append([task, 3])
@@ -137,28 +137,30 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
             tasks.append(TASK.TASK(subdomain_id, task_id_offset+0,
                                    task.required_tasks, [task_id_offset+1,
                                      task_id_offset+2], int(task.delta_t/4),
-                                   task.pos, task.dir))
+                                   task.pos, task.dir, 0))
             # On the corner no task may be required or waiting
             if task.required_tasks == []:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+1,
                                        [task_id_offset+0], [task_id_offset+3,
                                          min(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+2,
                                        [task_id_offset+0], [task_id_offset+3,
                                          max(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
             elif task.waiting_tasks == []:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+1,
                                       [task_id_offset+0,
                                         min(task.required_tasks)],
                                       [task_id_offset+3], int(task.delta_t/4),
-                                      task.pos, task.dir))
+                                      task.pos, task.dir, 0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+2,
                                        [task_id_offset+0,
                                          max(task.required_tasks)],
                                        [task_id_offset+3], int(task.delta_t/4),
-                                       task.pos, task.dir))
+                                       task.pos, task.dir, 0))
             else:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+1,
                                        [task_id_offset+0,
@@ -166,18 +168,18 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
                                        [task_id_offset+3,
                                          min(task.waiting_tasks)],
                                        int(task.delta_t/4), task.pos,
-                                       task.dir))
+                                       task.dir, 0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+2,
                                        [task_id_offset+0,
                                          max(task.required_tasks)],
                                        [task_id_offset+3,
                                          max(task.waiting_tasks)],
                                        int(task.delta_t/4), task.pos,
-                                       task.dir))
+                                       task.dir, 0))
             tasks.append(TASK.TASK(subdomain_id, task_id_offset+3,
                                    [task_id_offset+1, task_id_offset+2],
                                    task.waiting_tasks, int(task.delta_t/4),
-                                   task.pos, task.dir))
+                                   task.pos, task.dir, 0))
             for other_task in tasks:
                 if task_id in other_task.required_tasks:
                     other_task.required_tasks.remove(task_id)
@@ -199,45 +201,49 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
             tasks.append(TASK.TASK(subdomain_id, task_id_offset+2,
                                    task.required_tasks, [task_id_offset+0,
                                      task_id_offset+3],
-                                   int(task.delta_t/4), task.pos, task.dir))
+                                   int(task.delta_t/4), task.pos, task.dir, 0))
             # On the corner no task may be required or waiting
             if task.required_tasks == []:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+0,
                                        [task_id_offset+2], [task_id_offset+1,
                                          min(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+3,
                                        [task_id_offset+2], [task_id_offset+1,
                                          max(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
             elif task.waiting_tasks == []:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+0,
                                        [task_id_offset+2,
                                          min(task.required_tasks)],
                                        [task_id_offset+1], int(task.delta_t/4),
-                                       task.pos, task.dir))
+                                       task.pos, task.dir, 0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+3,
                                        [task_id_offset+2,
                                          max(task.required_tasks)],
                                        [task_id_offset+1], int(task.delta_t/4),
-                                       task.pos, task.dir))
+                                       task.pos, task.dir, 0))
             else:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+0,
                                        [task_id_offset+2,
                                          min(task.required_tasks)],
                                        [task_id_offset+1,
                                          min(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+3,
                                        [task_id_offset+2,
                                          max(task.required_tasks)],
                                        [task_id_offset+1,
                                          max(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
             tasks.append(TASK.TASK(subdomain_id, task_id_offset+1,
                                    [task_id_offset+0, task_id_offset+3],
                                    task.waiting_tasks, int(task.delta_t/4),
-                                   task.pos, task.dir))
+                                   task.pos, task.dir, 0))
             for other_task in tasks:
                 if task_id in other_task.required_tasks:
                     other_task.required_tasks.remove(task_id)
@@ -258,27 +264,29 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
         if dir == 2:
             tasks.append(TASK.TASK(subdomain_id, task_id_offset+1, task.required_tasks,
                                    [task_id_offset+0, task_id_offset+3],
-                                   int(task.delta_t/4), task.pos, task.dir))
+                                   int(task.delta_t/4), task.pos, task.dir, 0))
             # On the corner no task may be required or waiting
             if task.required_tasks == []:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+0,
                                        [task_id_offset+1], [task_id_offset+2,
                                          min(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+3,
                                        [task_id_offset+1], [task_id_offset+2,
                                          max(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
             elif task.waiting_tasks == []:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+0,
                                        [task_id_offset+1, min(task.required_tasks)],
                                        [task_id_offset+2], int(task.delta_t/4),
-                                       task.pos, task.dir))
+                                       task.pos, task.dir, 0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+3,
                                        [task_id_offset+1,
                                          max(task.required_tasks)],
                                        [task_id_offset+2], int(task.delta_t/4),
-                                       task.pos, task.dir))
+                                       task.pos, task.dir, 0))
             else:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+0,
                                        [task_id_offset+1,
@@ -286,17 +294,18 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
                                        [task_id_offset+2,
                                          min(task.waiting_tasks)],
                                        int(task.delta_t/4), task.pos,
-                                       task.dir))
+                                       task.dir, 0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+3,
                                        [task_id_offset+1,
                                          max(task.required_tasks)],
                                        [task_id_offset+2,
                                          max(task.waiting_tasks)],
-                                       int(task.delta_t/4), task.pos, task.dir))
+                                       int(task.delta_t/4), task.pos, task.dir,
+                                       0))
             tasks.append(TASK.TASK(subdomain_id, task_id_offset+2,
                                    [task_id_offset+0, task_id_offset+3],
                                    task.waiting_tasks, int(task.delta_t/4),
-                                   task.pos, task.dir))
+                                   task.pos, task.dir, 0))
             for other_task in tasks:
                 if task_id in other_task.required_tasks:
                     other_task.required_tasks.remove(task_id)
@@ -318,30 +327,30 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
             tasks.append(TASK.TASK(subdomain_id, task_id_offset+3,
                                    task.required_tasks, [task_id_offset+1,
                                      task_id_offset+2], int(task.delta_t/4),
-                                   task.pos, task.dir))
+                                   task.pos, task.dir, 0))
             # On the corner no task may be required or waiting
             if task.required_tasks == []:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+1,
                                        [task_id_offset+3], [task_id_offset+0,
                                          min(task.waiting_tasks)],
                                        int(task.delta_t/4), task.pos,
-                                       task.dir))
+                                       task.dir, 0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+2,
                                        [task_id_offset+3], [task_id_offset+0,
                                          max(task.waiting_tasks)],
                                        int(task.delta_t/4), task.pos,
-                                       task.dir))
+                                       task.dir, 0))
             elif task.waiting_tasks == []:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+1,
                                        [task_id_offset+3,
                                         min(task.required_tasks)],
                                        [task_id_offset+0], int(task.delta_t/4),
-                                       task.pos, task.dir))
+                                       task.pos, task.dir, 0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+2,
                                        [task_id_offset+3,
                                         max(task.required_tasks)],
                                        [task_id_offset+0], int(task.delta_t/4),
-                                       task.pos, task.dir))
+                                       task.pos, task.dir, 0))
             else:
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+1,
                                        [task_id_offset+3,
@@ -349,18 +358,18 @@ def build_tasks(n_x, n_y, n_p, d_t, sn, cells_to_refine):
                                        [task_id_offset+0,
                                         min(task.waiting_tasks)],
                                        int(task.delta_t/4), task.pos,
-                                       task.dir))
+                                       task.dir, 0))
                 tasks.append(TASK.TASK(subdomain_id, task_id_offset+2,
                                        [task_id_offset+3,
                                         max(task.required_tasks)],
                                        [task_id_offset+0,
                                         max(task.waiting_tasks)],
                                        int(task.delta_t/4), task.pos,
-                                       task.dir))
+                                       task.dir, 0))
             tasks.append(TASK.TASK(subdomain_id, task_id_offset+0,
                                    [task_id_offset+1, task_id_offset+2],
                                    task.waiting_tasks, int(task.delta_t/4),
-                                   task.pos, task.dir))
+                                   task.pos, task.dir, 0))
             for other_task in tasks:
                 if task_id in other_task.required_tasks:
                     other_task.required_tasks.remove(task_id)
