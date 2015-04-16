@@ -231,47 +231,65 @@ class BRANCH_AND_BOUND(object):
 
 #----------------------------------------------------------------------------#
 
-    def Compute_centroids(self,nodes_to_explore):
-        """Compute 100 clusters using k-means, compute their centroids, and then
-        finally return the closest nodes to the centroids."""
+    def Compute_nodes_centroids(self, nodes_to_explore):
+        """Compute clusters of nodes_to_explors using k-means, compute their
+        centroids, and then finally return the closest nodes to the
+        centroids."""
         
-        if len(nodes_to_explore) > self.n_clusters and\
+        n_nodes_to_explore = len(nodes_to_explore)
+        if n_nodes_to_explore > self.n_clusters and\
                 len(self.nodes[nodes_to_explore[0]].graph) != 0 and\
                 len(self.nodes[nodes_to_explore[0]].graph[-1]) > 1:
 
 # Build the observation matrix
-            obs = np.zeros([len(nodes_to_explore),\
+            obs = np.zeros([n_nodes_to_explore,\
                 len(self.nodes[nodes_to_explore[0]].graph[-1])])
-            for i in range(len(nodes_to_explore)):
+            for i in range(n_nodes_to_explore):
                 node = self.nodes[nodes_to_explore[i]]
                 for j in range(len(node.graph[-1])):
                     obs[i][j] = node.graph[-1][j].task_id
 
+# If a column has only identical elements, whiten crashes (whiten renormalize
+# the elements in the column so that the standard deviation is one). Thus, we
+# remove from obs the columns that only have identical elements.
+            new_obs = []
+            unique_columns = []
+            for j in range(len(obs[0])):
+                value = obs[0][j]
+                for i in range(1, n_nodes_to_explore):
+                    if value != obs[i][j]:
+                        unique_columns.append(j)
+                        break
+            for i in range(n_nodes_to_explore):
+                row = []
+                for j in unique_columns:
+                    row.append(obs[i][j])
+                new_obs.append(row)
+
 # Normalize the observation matrix
-            norm_obs = vq.whiten(obs)
+            norm_obs = vq.whiten(new_obs)
 
 # Create the clusters
             clusters = vq.kmeans(norm_obs, self.n_clusters)
 
-# Keep only the 100 nodes the closest to the centroids
             book = vq.vq(norm_obs,clusters[0])
 
-# Extract the 100 nodes that are the closest to the centroids
+# Extract the nodes that are the closest to the centroids
             reduced_nodes_to_explore = []
-            i_max = min(len(book[1]), self.n_clusters)
+            i_max = min(len(clusters[0]), self.n_clusters)
             for i in range(i_max):
-                nodes_in_cluster = []
                 position = []
-                for j in range(len(nodes_to_explore)):
+                for j in range(n_nodes_to_explore):
                     if book[0][j] == i:
-                        nodes_in_cluster.append(nodes_to_explore[j])
                         position.append(j)
                 min_distance = 1e6
                 pos = 0
-                for j in range(len(position)):
+                for j in position:
                     if book[1][j] < min_distance:
                         min_distance = book[1][j]
-                        pos = position[j]
+                        pos = j
+                if min_distance == 1e6:
+                    raise NameError('Nodes clustering failed')
                 reduced_nodes_to_explore.append(nodes_to_explore[pos])
 
             return reduced_nodes_to_explore
@@ -281,7 +299,7 @@ class BRANCH_AND_BOUND(object):
 
 #----------------------------------------------------------------------------#
 
-    def Reduce_tasks_ready(self,tasks_ready):
+    def Reduce_tasks_ready(self, tasks_ready):
         """Group the tasks that are ready by subdomain id and then, for each
         subdomain id suppress from tasks_ready the equivalent tasks. Tasks are
         equivalent if they corresponds to the same cell and their direction is
@@ -317,8 +335,74 @@ class BRANCH_AND_BOUND(object):
 
 #----------------------------------------------------------------------------#
 
+    def Compute_used_tasks_centroids(self, full_used_tasks):
+        """Compute clusters of used_tasks using k-means, compute their
+        centroids, and then finally return the used_tasks to the
+        centroids."""
+        
+        n_clusters = 10*self.n_clusters
+        if len(full_used_tasks) > n_clusters:
+# Build the observation matrix
+            obs = np.zeros([len(full_used_tasks), len(full_used_tasks[0])])
+            for i in range(len(full_used_tasks)):
+                used_tasks = full_used_tasks[i]
+                for j in range(len(used_tasks)):
+                    obs[i][j] = used_tasks[j].task_id
+
+# If a column has only identical elements, whiten crashes (whiten renormalize
+# the elements in the column so that the standard deviation is one). Thus, we
+# remove from obs the columns that only have identical elements.
+            new_obs = []
+            unique_columns = []
+            for j in range(len(full_used_tasks[0])):
+                value = obs[0][j]
+                for i in range(1,len(full_used_tasks)):
+                    if value != obs[i][j]:
+                        unique_columns.append(j)
+                        break
+            for i in range(len(full_used_tasks)):
+                row = []
+                for j in unique_columns:
+                    row.append(obs[i][j])
+                new_obs.append(row)
+
+# Normalize the observation matrix
+            norm_obs = vq.whiten(new_obs)
+
+# Create the clusters
+            clusters = vq.kmeans(norm_obs, n_clusters)
+
+            book = vq.vq(norm_obs, clusters[0])
+
+# Extract the nodes that are the closest to the centroids
+            reduced_used_tasks = []
+            i_max = min(len(clusters[0]), n_clusters)
+            for i in range(i_max):
+                position = []
+                for j in range(len(full_used_tasks)):
+                    if book[0][j] == i:
+                        position.append(j)
+                min_distance = 1e6
+                pos = 0
+                for j in position:
+                    if book[1][j] < min_distance:
+                        min_distance = book[1][j]
+                        pos = j
+                if min_distance == 1e6:
+                    raise NameError('Used_tasks clustering failed')
+                reduced_used_tasks.append(full_used_tasks[pos])
+
+            return reduced_used_tasks
+
+        else:
+            return full_used_tasks
+
+#----------------------------------------------------------------------------#
+
     def Run(self):
         """Solve the SOP using branch-and-bound algorithm."""
+# TODO: using the clustering reveals that some nodes and used_tasks are
+# identical. This should be improved to improved speed.
 
 # Create the first node
         self.nodes = []
@@ -377,10 +461,11 @@ class BRANCH_AND_BOUND(object):
                 nodes_to_explore.pop(pos)
 
 # Cluster the tasks and then, only explore the centroids of theses clusters.
-            nodes_to_explore = self.Compute_centroids(nodes_to_explore)
             print()
             print()
             print("number of nodes to explore",len(nodes_to_explore))
+            nodes_to_explore = self.Compute_nodes_centroids(nodes_to_explore)
+            print("number of reduced nodes to explore",len(nodes_to_explore))
 
             for pos in nodes_to_explore:
                 subdomains_list = self.Compute_subdomains_list(self.nodes[pos])
@@ -412,16 +497,26 @@ class BRANCH_AND_BOUND(object):
                             n_tasks_ready *= tmp
                         print('number of tasks ready', n_tasks_ready)
                         current_pos = [0 for i in range(len(n_tasks_ready_per_proc))]
+# Create all the used_tasks possible so that they can be clustered later on.
+                        full_used_tasks = []
                         for j in range(n_tasks_ready):
                             used_tasks = []
                             for proc in range(len(n_tasks_ready_per_proc)):
                                 used_tasks.append(reduced_tasks_ready[proc][current_pos[proc]])
+                            full_used_tasks.append(used_tasks)
                             current_pos[0] += 1
                             for proc in range(len(n_tasks_ready_per_proc)):
                                 if current_pos[proc] == n_tasks_ready_per_proc[proc] and\
                                         proc+1 < len(n_tasks_ready_per_proc):
                                     current_pos[proc] = 0
                                     current_pos[proc+1] += 1
+
+# Reduce the number of full_used_tasks by clustering them
+                        reduced_used_tasks = self.Compute_used_tasks_centroids(
+                                full_used_tasks)
+                        print('reduced number of tasks ready',
+                                len(reduced_used_tasks))
+                        for used_tasks in reduced_used_tasks:
                             node = self.Create_node(used_procs, used_tasks,
                                                 self.nodes[pos])
                             if node.min_bound < self.best_time:
