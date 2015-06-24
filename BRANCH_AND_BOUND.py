@@ -13,7 +13,7 @@ actually closer to A* than Branch-And-Bound)"""
 
 import itertools
 import numpy as np
-import scipy.cluster.vq as vq
+from sklearn.cluster import MiniBatchKMeans
 import random
 import TASK
 
@@ -249,47 +249,12 @@ class BRANCH_AND_BOUND(object):
                 for j in range(len(node.graph[-1])):
                     obs[i][j] = node.graph[-1][j].task_id
 
-# If a column has only identical elements, whiten crashes (whiten renormalize
-# the elements in the column so that the standard deviation is one). Thus, we
-# remove from obs the columns that only have identical elements.
-            new_obs = []
-            unique_columns = []
-            for j in range(len(obs[0])):
-                value = obs[0][j]
-                for i in range(1, n_nodes_to_explore):
-                    if value != obs[i][j]:
-                        unique_columns.append(j)
-                        break
-            for i in range(n_nodes_to_explore):
-                row = []
-                for j in unique_columns:
-                    row.append(obs[i][j])
-                new_obs.append(row)
-
-# Normalize the observation matrix
-            norm_obs = vq.whiten(new_obs)
-
-# Create the clusters
-            clusters = vq.kmeans(norm_obs, self.n_clusters)
-
-            book = vq.vq(norm_obs,clusters[0])
-
-# Extract the nodes that are the closest to the centroids
+            minibatch_kmeans = MiniBatchKMeans(self.n_clusters)
+            minibatch_kmeans.fit(obs)
+            distances = minibatch_kmeans.transform(obs)
             reduced_nodes_to_explore = []
-            i_max = min(len(clusters[0]), self.n_clusters)
-            for i in range(i_max):
-                position = []
-                for j in range(n_nodes_to_explore):
-                    if book[0][j] == i:
-                        position.append(j)
-                min_distance = 1e6
-                pos = 0
-                for j in position:
-                    if book[1][j] < min_distance:
-                        min_distance = book[1][j]
-                        pos = j
-                if min_distance == 1e6:
-                    raise NameError('Nodes clustering failed')
+            for i in range(self.n_clusters):
+                pos = distances[:,i].argmin()
                 reduced_nodes_to_explore.append(nodes_to_explore[pos])
 
             return reduced_nodes_to_explore
@@ -349,47 +314,12 @@ class BRANCH_AND_BOUND(object):
                 for j in range(len(used_tasks)):
                     obs[i][j] = used_tasks[j].task_id
 
-# If a column has only identical elements, whiten crashes (whiten renormalize
-# the elements in the column so that the standard deviation is one). Thus, we
-# remove from obs the columns that only have identical elements.
-            new_obs = []
-            unique_columns = []
-            for j in range(len(full_used_tasks[0])):
-                value = obs[0][j]
-                for i in range(1,len(full_used_tasks)):
-                    if value != obs[i][j]:
-                        unique_columns.append(j)
-                        break
-            for i in range(len(full_used_tasks)):
-                row = []
-                for j in unique_columns:
-                    row.append(obs[i][j])
-                new_obs.append(row)
-
-# Normalize the observation matrix
-            norm_obs = vq.whiten(new_obs)
-
-# Create the clusters
-            clusters = vq.kmeans(norm_obs, n_clusters)
-
-            book = vq.vq(norm_obs, clusters[0])
-
-# Extract the nodes that are the closest to the centroids
+            minibatch_kmeans = MiniBatchKMeans(n_clusters)
+            minibatch_kmeans.fit(obs)
+            distances = minibatch_kmeans.transform(obs)
             reduced_used_tasks = []
-            i_max = min(len(clusters[0]), n_clusters)
-            for i in range(i_max):
-                position = []
-                for j in range(len(full_used_tasks)):
-                    if book[0][j] == i:
-                        position.append(j)
-                min_distance = 1e6
-                pos = 0
-                for j in position:
-                    if book[1][j] < min_distance:
-                        min_distance = book[1][j]
-                        pos = j
-                if min_distance == 1e6:
-                    raise NameError('Used_tasks clustering failed')
+            for i in range(n_clusters):
+                pos = distances[:,i].argmin()
                 reduced_used_tasks.append(full_used_tasks[pos])
 
             return reduced_used_tasks
